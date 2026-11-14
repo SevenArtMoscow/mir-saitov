@@ -183,6 +183,28 @@ const WorksHead = React.memo(function WorksHead() {
             Каждый сайт — свой мир со своим характером. Листайте: страница перекрасится под каждый из них, а промо-сайты можно открыть вживую прямо здесь.
           </p>
         </div>
+        {/* оглавление: перейти сразу к нужной работе */}
+        <motion.ul
+          className="mt-12 flex flex-wrap gap-2"
+          initial="hide"
+          whileInView="show"
+          viewport={{ once: true, margin: '-10% 0px' }}
+          variants={{ show: { transition: { staggerChildren: 0.07, delayChildren: 0.3 } } }}
+          aria-label="Список работ"
+        >
+          {WORKS.map((w, i) => (
+            <motion.li key={w.slug} variants={{ hide: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1] } } }}>
+              <button
+                onClick={() => scrollToId(`work-${w.slug}`)}
+                className="group flex items-center gap-2.5 rounded-full border border-white/10 bg-white/[0.03] py-2 pl-3 pr-4 text-[13px] font-semibold transition-colors hover:border-white/30 hover:bg-white/[0.07]"
+              >
+                <i className="h-2 w-2 rounded-full transition-transform duration-300 group-hover:scale-150" style={{ background: w.accent, boxShadow: `0 0 12px ${w.accent}` }} />
+                <span className="font-mono text-[10px] text-haze">{String(i + 1).padStart(2, '0')}</span>
+                {w.name}
+              </button>
+            </motion.li>
+          ))}
+        </motion.ul>
       </div>
   );
 });
@@ -230,6 +252,24 @@ const Works: React.FC = () => {
   }, []);
 
   const cur = active >= 0 ? WORKS[active] : null;
+
+  // внутри раздела ←/→ листают работы; на первой и последней — отдаём клавишу рейке глав (Deck)
+  useEffect(() => {
+    if (!inSection || active < 0) return;
+    const key = (e: KeyboardEvent) => {
+      if (e.altKey || e.ctrlKey || e.metaKey || (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft')) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      if (document.documentElement.style.overflow === 'hidden') return;
+      const to = active + (e.key === 'ArrowRight' ? 1 : -1);
+      if (to < 0 || to >= WORKS.length) return;
+      e.preventDefault();
+      scrollToId(`work-${WORKS[to].slug}`);
+    };
+    window.addEventListener('keydown', key, true); // в фазе перехвата — раньше рейки глав
+    return () => window.removeEventListener('keydown', key, true);
+  }, [inSection, active]);
+
   // фон всей страницы (слой .page-bg) перекрашивается в цвета работы на экране — без швов между блоками
   useEffect(() => {
     const bg = document.getElementById('page-bg');
@@ -287,8 +327,21 @@ const Works: React.FC = () => {
                 </motion.span>
               </AnimatePresence>
             </div>
-            <div className="mx-1 hidden h-1 w-20 overflow-hidden rounded-full bg-white/10 sm:block">
-              <motion.div className="h-full rounded-full" style={{ background: cur.accent }} animate={{ width: `${((active + 1) / WORKS.length) * 100}%` }} />
+            <div className="mx-1 hidden items-center gap-1 sm:flex">
+              {WORKS.map((w, i) => (
+                <button
+                  key={w.slug}
+                  onClick={() => scrollToId(`work-${w.slug}`)}
+                  aria-label={w.name}
+                  className="group py-2"
+                >
+                  <motion.span
+                    className="block h-1 rounded-full"
+                    animate={{ width: i === active ? 22 : 8, backgroundColor: i <= active ? cur.accent : 'rgba(255,255,255,.18)', opacity: i === active ? 1 : 0.7 }}
+                    transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                  />
+                </button>
+              ))}
             </div>
             <button
               onClick={() => active < WORKS.length - 1 && scrollToId(`work-${WORKS[active + 1].slug}`)}
