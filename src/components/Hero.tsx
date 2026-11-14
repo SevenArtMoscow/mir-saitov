@@ -1,9 +1,9 @@
 import React, { Suspense, lazy, useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useMotionValue, useScroll, useSpring, useTransform } from 'motion/react';
 import { WORKS } from '../data';
-import { scrollToId } from '../lib/smooth';
+import { finePointer, reducedMotion, scrollToId } from '../lib/smooth';
 import ErrorBoundary from './ErrorBoundary';
-import { Arrow, Magnetic } from './ui';
+import { Arrow, Magnetic, auroraLetter } from './ui';
 
 const EarthScene = lazy(() => import('./EarthScene'));
 
@@ -24,15 +24,42 @@ const CssPlanet: React.FC = () => (
   <div className="absolute right-[-10%] top-1/2 aspect-square w-[70vmin] -translate-y-1/2 rounded-full bg-[radial-gradient(circle_at_35%_30%,#3ee6ff,#8b6cff_45%,#14102a_75%)] shadow-[0_0_120px_40px_rgba(139,108,255,.35)] max-lg:right-1/2 max-lg:translate-x-1/2" />
 );
 
-const line = {
-  hide: { y: '105%' },
-  show: (i: number) => ({ y: '0%', transition: { duration: 1.2, delay: 0.15 + i * 0.12, ease: [0.16, 1, 0.3, 1] as const } }),
-};
+// Строка заголовка: буквы выезжают по одной, проявляясь из размытия
+const Letters: React.FC<{ text: string; start: number; ready: boolean; className: string; aurora?: boolean }> = ({ text, start, ready, className, aurora }) => (
+  <span className="block overflow-hidden pb-[0.06em]">
+    <span className={`block ${className}`} aria-label={text}>
+      {[...text].map((ch, i) => (
+        <motion.span
+          key={i}
+          aria-hidden
+          className="inline-block"
+          style={aurora ? auroraLetter(i, text.length) : undefined}
+          initial={{ y: '110%', rotate: 7, opacity: 0, filter: 'blur(14px)' }}
+          animate={ready ? { y: '0%', rotate: 0, opacity: 1, filter: 'blur(0px)' } : {}}
+          transition={{ duration: 1.25, delay: start + i * 0.07, ease: [0.16, 1, 0.3, 1] }}
+        >
+          {ch}
+        </motion.span>
+      ))}
+    </span>
+  </span>
+);
 
 const Hero: React.FC<{ ready: boolean }> = ({ ready }) => {
   const box = useRef<HTMLElement>(null);
   const scroll = useRef(0);
   const [active, setActive] = useState(true);
+  // уходя вниз, содержимое первого экрана чуть отстаёт от страницы и растворяется
+  const { scrollY } = useScroll();
+  const outY = useTransform(scrollY, [0, 700], [0, 120]);
+  const outOpacity = useTransform(scrollY, [0, 520], [1, 0]);
+  // заголовок и текст слегка «плывут» за курсором — на разной глубине
+  const mx = useSpring(useMotionValue(0), { stiffness: 60, damping: 18 });
+  const my = useSpring(useMotionValue(0), { stiffness: 60, damping: 18 });
+  const hx = useTransform(mx, (v) => v * -14);
+  const hy = useTransform(my, (v) => v * -10);
+  const px = useTransform(mx, (v) => v * 6);
+  const py = useTransform(my, (v) => v * 4);
   const [gl] = useState(hasWebGL);
   const [compact, setCompact] = useState(() => window.innerWidth < 1024);
   const [inside, setInside] = useState(false);
@@ -46,16 +73,23 @@ const Hero: React.FC<{ ready: boolean }> = ({ ready }) => {
       const h = box.current?.offsetHeight || 1;
       scroll.current = Math.min(1.5, window.scrollY / h);
     };
+    const onMove = (e: PointerEvent) => {
+      mx.set(e.clientX / window.innerWidth - 0.5);
+      my.set(e.clientY / window.innerHeight - 0.5);
+    };
+    const parallax = finePointer() && !reducedMotion();
+    if (parallax) window.addEventListener('pointermove', onMove, { passive: true });
     window.addEventListener('resize', onResize);
     window.addEventListener('scroll', onScroll, { passive: true });
     const io = new IntersectionObserver((e) => setActive(e[0].isIntersecting), { rootMargin: '100px' });
     if (box.current) io.observe(box.current);
     return () => {
+      window.removeEventListener('pointermove', onMove);
       window.removeEventListener('resize', onResize);
       window.removeEventListener('scroll', onScroll);
       io.disconnect();
     };
-  }, []);
+  }, [mx, my]);
 
   const pick = (slug: string) => (inside ? openWork(slug) : scrollToId(`work-${slug}`));
   useEffect(() => {
@@ -66,7 +100,7 @@ const Hero: React.FC<{ ready: boolean }> = ({ ready }) => {
   }, [inside]);
 
   return (
-    <section ref={box} className="relative h-[100svh] min-h-[640px] overflow-hidden" aria-label="Мир сайтов">
+    <section id="hero" ref={box} className="relative h-[100svh] min-h-[640px] overflow-hidden" aria-label="Мир сайтов">
       {/* сияние фона */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_50%_at_70%_45%,rgba(139,108,255,.22),transparent_70%),radial-gradient(40%_40%_at_20%_80%,rgba(62,230,255,.10),transparent_70%)]" />
 
@@ -150,7 +184,8 @@ const Hero: React.FC<{ ready: boolean }> = ({ ready }) => {
         )}
       </AnimatePresence>
 
-      <div className={`pointer-events-none relative z-10 mx-auto flex h-full max-w-[1500px] flex-col justify-end px-5 pb-10 transition-all duration-700 sm:px-10 sm:pb-14 ${inside ? 'translate-y-8 opacity-0 [&_*]:!pointer-events-none' : ''}`}>
+      <div className={`pointer-events-none relative z-10 mx-auto h-full max-w-[1500px] px-5 pb-10 transition-all duration-700 sm:px-10 sm:pb-14 ${inside ? 'translate-y-8 opacity-0 [&_*]:!pointer-events-none' : ''}`}>
+        <motion.div className="flex h-full flex-col justify-end" style={{ y: outY, opacity: outOpacity }}>
         <motion.div
           className="mb-auto mt-28 flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.3em] text-haze max-lg:invisible"
           initial={{ opacity: 0 }}
@@ -164,20 +199,12 @@ const Hero: React.FC<{ ready: boolean }> = ({ ready }) => {
           Студия веб-разработки · берём проекты
         </motion.div>
 
-        <h1 className="font-display font-semibold leading-[0.86] tracking-[-0.04em]">
-          <span className="block overflow-hidden">
-            <motion.span className="block text-[18vw] sm:text-[16vw] lg:text-[13.5vw]" variants={line} custom={0} initial="hide" animate={ready ? 'show' : 'hide'}>
-              Мир
-            </motion.span>
-          </span>
-          <span className="block overflow-hidden pb-[0.06em]">
-            <motion.span className="text-aurora block text-[18vw] sm:text-[16vw] lg:text-[13.5vw]" variants={line} custom={1} initial="hide" animate={ready ? 'show' : 'hide'}>
-              сайтов
-            </motion.span>
-          </span>
-        </h1>
+        <motion.h1 className="font-display font-semibold leading-[0.86] tracking-[-0.04em]" style={{ x: hx, y: hy }}>
+          <Letters text="Мир" start={0.15} ready={ready} className="text-[18vw] sm:text-[16vw] lg:text-[13.5vw]" />
+          <Letters text="сайтов" start={0.45} ready={ready} aurora className="text-[18vw] sm:text-[16vw] lg:text-[13.5vw]" />
+        </motion.h1>
 
-        <div className="mt-6 flex flex-col gap-6 sm:mt-8 lg:flex-row lg:items-end lg:justify-between">
+        <motion.div className="mt-6 flex flex-col gap-6 sm:mt-8 lg:flex-row lg:items-end lg:justify-between" style={{ x: px, y: py }}>
           <motion.p
             className="max-w-md text-[15px] leading-relaxed text-haze sm:text-[17px]"
             initial={{ opacity: 0, y: 20 }}
@@ -211,7 +238,8 @@ const Hero: React.FC<{ ready: boolean }> = ({ ready }) => {
               </button>
             </Magnetic>
           </motion.div>
-        </div>
+        </motion.div>
+        </motion.div>
       </div>
 
       <motion.button

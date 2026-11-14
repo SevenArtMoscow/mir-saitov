@@ -123,11 +123,22 @@ export const Reveal: React.FC<{ children: React.ReactNode; delay?: number; y?: n
 );
 
 // Подпись раздела: номер + название моноширинным
+// Справа за заголовком — огромный призрачный номер главы: как титульный слайд презентации
 export const Eyebrow: React.FC<{ n: string; children: React.ReactNode; className?: string }> = ({ n, children, className = '' }) => (
-  <div className={`flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.28em] text-haze ${className}`}>
-    <span className="text-lime">{n}</span>
-    <span className="h-px w-10 bg-white/20" />
-    <span>{children}</span>
+  <div className={`relative flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.28em] text-haze ${className}`}>
+    <motion.span
+      aria-hidden
+      className="text-outline pointer-events-none absolute -top-6 right-0 select-none font-display text-[34vw] font-semibold leading-none tracking-[-0.06em] opacity-[0.12] sm:-top-16 lg:text-[22vw]"
+      initial={{ opacity: 0, x: 80 }}
+      whileInView={{ opacity: 0.12, x: 0 }}
+      viewport={{ once: true, margin: '-10% 0px' }}
+      transition={{ duration: 1.6, ease: [0.16, 1, 0.3, 1] }}
+    >
+      {n}
+    </motion.span>
+    <span className="relative text-lime">{n}</span>
+    <span className="relative h-px w-10 bg-white/20" />
+    <span className="relative">{children}</span>
   </div>
 );
 

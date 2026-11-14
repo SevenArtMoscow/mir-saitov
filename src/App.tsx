@@ -3,6 +3,7 @@ import { motion, useScroll, useSpring } from 'motion/react';
 import Cursor from './components/Cursor';
 import Loader from './components/Loader';
 import Header from './components/Header';
+import Deck from './components/Deck';
 import Hero from './components/Hero';
 import Marquee from './components/Marquee';
 import Works from './components/Works';
@@ -52,6 +53,7 @@ const Main: React.FC = () => {
       <Cursor />
       <motion.div className="fixed inset-x-0 top-0 z-[70] h-[2px] origin-left bg-gradient-to-r from-violet via-cyan to-lime" style={{ scaleX: bar }} />
       <Header />
+      <Deck visible={ready} />
       <main>
         <Hero ready={ready} />
         <Marquee />

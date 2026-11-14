@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { motion, useSpring, useTransform } from 'motion/react';
+import { motion, useSpring, useTransform, type MotionValue } from 'motion/react';
 import { useSectionProgress } from '../lib/progress';
 import { Eyebrow, SplitReveal } from './ui';
 
@@ -9,6 +9,19 @@ const STEPS = [
   { t: 'Разработка', d: 'Верстаем и оживляем: 3D, анимации, корзина, Telegram, админка. Показываем прогресс по ходу.', icon: 'M8 8l-4 4 4 4M16 8l4 4-4 4M14 5l-4 14' },
   { t: 'Запуск', d: 'Домен, хостинг, HTTPS и скорость загрузки. После запуска остаёмся рядом: поддержка и доработки.', icon: 'M4.5 16.5c-1.5 1.3-2 5-2 5s3.7-.5 5-2c.7-.8.7-2.1-.1-2.9a2.2 2.2 0 0 0-2.9-.1zM12 15l-3-3a22 22 0 0 1 2-4A12.9 12.9 0 0 1 22 2c0 2.7-.8 7.5-6 11a22.4 22.4 0 0 1-4 2zM9 12H4s.6-3 2-4c1.6-1.1 5 0 5 0M12 15v5s3-.6 4-2c1.1-1.6 0-5 0-5' },
 ];
+
+// Круг шага загорается, когда линия до него «дорисовалась»
+const StepIcon: React.FC<{ icon: string; at: number; draw: MotionValue<number> }> = ({ icon, at, draw }) => {
+  const border = useTransform(draw, [at - 0.1, at], ['rgba(255,255,255,.15)', 'rgba(200,255,77,.9)']);
+  const glow = useTransform(draw, [at - 0.1, at], ['0 0 0px rgba(200,255,77,0)', '0 0 34px rgba(200,255,77,.35)']);
+  return (
+    <motion.span className="grid h-[70px] w-[70px] place-items-center rounded-full border bg-void" style={{ borderColor: border, boxShadow: glow }}>
+      <svg viewBox="0 0 24 24" className="h-7 w-7 text-lime" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d={icon} />
+      </svg>
+    </motion.span>
+  );
+};
 
 const Process: React.FC = () => {
   const ref = useRef<HTMLElement>(null);
@@ -54,11 +67,7 @@ const Process: React.FC = () => {
                 className="relative"
               >
                 <div className="relative z-10 mb-7 flex items-center gap-4">
-                  <span className="grid h-[70px] w-[70px] place-items-center rounded-full border border-white/15 bg-void">
-                    <svg viewBox="0 0 24 24" className="h-7 w-7 text-lime" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <path d={s.icon} />
-                    </svg>
-                  </span>
+                  <StepIcon icon={s.icon} at={Math.max(0.06, i / (STEPS.length - 1) - 0.02)} draw={draw} />
                   <span className="font-mono text-[11px] uppercase tracking-[0.25em] text-haze">Шаг 0{i + 1}</span>
                 </div>
                 <h3 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">{s.t}</h3>
