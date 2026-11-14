@@ -6,7 +6,7 @@ import type { MqttClient } from 'mqtt';
 import { TEAM } from '../data';
 import Chibi from '../components/Chibi';
 import { Logo } from '../components/Header';
-import { connect, makeRoom, topics, type InputMsg, type Phase, type StateMsg } from './net';
+import { connect, makeRoom, parseInput, topics, type Phase, type StateMsg } from './net';
 import NoiseMeter from './NoiseMeter';
 
 // Большой экран для выступления: зал сканирует QR, выбирает героя и жмёт кнопку в телефоне —
@@ -92,18 +92,15 @@ const Stage: React.FC = () => {
         setStatus('online');
         cl.subscribe(topics(room).input);
         cl.on('message', (_, buf) => {
-          let m: InputMsg;
-          try {
-            m = JSON.parse(buf.toString());
-          } catch {
-            return;
-          }
-          if (!m.p || !TEAM.some((t) => t.id === m.t)) return;
+          const m = parseInput(buf);
+          if (!m || !TEAM.some((t) => t.id === m.t)) return;
+          // чужие «игроки» не должны раздувать список бесконечно
+          if (!roster.current.has(m.p) && roster.current.size >= 500) return;
           // команду можно менять до старта; во время гонки — только новичкам
           if (phaseRef.current === 'lobby' || phaseRef.current === 'end' || !roster.current.has(m.p)) roster.current.set(m.p, m.t);
           if (phaseRef.current === 'race' && m.n > 0) {
             const team = roster.current.get(m.p)!;
-            taps.current[team] += Math.min(m.n, 25); // не больше 25 нажатий за одно сообщение
+            taps.current[team] += m.n; // parseInput уже ограничил: целое от 0 до 25
           }
           setPlayers(counts());
         });

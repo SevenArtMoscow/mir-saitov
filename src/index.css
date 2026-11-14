@@ -1,9 +1,9 @@
 @import 'tailwindcss';
 
 @theme {
-  --font-display: 'Unbounded', system-ui, sans-serif;
-  --font-sans: 'Manrope', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-display: 'Unbounded Variable', system-ui, sans-serif;
+  --font-sans: 'Manrope Variable', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
 
   --color-void: #07060c;
   --color-night: #0e0c17;

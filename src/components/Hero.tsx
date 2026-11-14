@@ -2,6 +2,7 @@ import React, { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { WORKS } from '../data';
 import { scrollToId } from '../lib/smooth';
+import ErrorBoundary from './ErrorBoundary';
 import { Arrow, Magnetic } from './ui';
 
 const EarthScene = lazy(() => import('./EarthScene'));
@@ -71,6 +72,7 @@ const Hero: React.FC<{ ready: boolean }> = ({ ready }) => {
 
       <div className="absolute inset-0 max-lg:top-[-6%]" data-hover={hoverEarth || site ? '' : undefined}>
         {gl ? (
+          <ErrorBoundary fallback={<CssPlanet />}>
           <Suspense fallback={null}>
             {/* без scale: холст меряет размер родителя с учётом transform и остался бы на 90% ширины */}
             <motion.div className="h-full w-full" initial={{ opacity: 0 }} animate={ready ? { opacity: 1 } : {}} transition={{ duration: 1.6, ease: [0.16, 1, 0.3, 1] }}>
@@ -86,6 +88,7 @@ const Hero: React.FC<{ ready: boolean }> = ({ ready }) => {
               />
             </motion.div>
           </Suspense>
+          </ErrorBoundary>
         ) : (
           <CssPlanet />
         )}

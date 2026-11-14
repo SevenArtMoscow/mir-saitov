@@ -65,3 +65,31 @@ export const playerId = () => {
     return Math.random().toString(36).slice(2, 10);
   }
 };
+
+// Брокеры публичные: в тему может написать кто угодно, поэтому всё входящее проверяем по форме и ограничиваем.
+const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+
+export function parseInput(buf: { toString(): string }): InputMsg | null {
+  let m: unknown;
+  try {
+    m = JSON.parse(buf.toString());
+  } catch {
+    return null;
+  }
+  if (!isObj(m) || typeof m.p !== 'string' || typeof m.t !== 'string' || m.p.length === 0 || m.p.length > 32 || m.t.length > 32) return null;
+  const n = typeof m.n === 'number' && Number.isFinite(m.n) ? Math.min(25, Math.max(0, Math.floor(m.n))) : 0;
+  return { p: m.p, t: m.t, n, j: m.j === 1 ? 1 : undefined };
+}
+
+export function parseState(buf: { toString(): string }): StateMsg | null {
+  let m: unknown;
+  try {
+    m = JSON.parse(buf.toString());
+  } catch {
+    return null;
+  }
+  if (!isObj(m) || !['lobby', 'count', 'race', 'end'].includes(m.phase as string) || typeof m.at !== 'number' || !isObj(m.progress)) return null;
+  const num = (o: unknown) =>
+    isObj(o) ? Object.fromEntries(Object.entries(o).filter(([, v]) => typeof v === 'number' && Number.isFinite(v))) as Record<string, number> : {};
+  return { phase: m.phase as Phase, at: m.at, progress: num(m.progress), players: num(m.players), winner: typeof m.winner === 'string' ? m.winner : undefined };
+}

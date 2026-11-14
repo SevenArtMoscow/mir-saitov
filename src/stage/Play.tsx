@@ -4,7 +4,7 @@ import type { MqttClient } from 'mqtt';
 import { TEAM, type Member } from '../data';
 import Chibi from '../components/Chibi';
 import { Logo } from '../components/Header';
-import { connect, playerId, topics, type InputMsg, type StateMsg } from './net';
+import { connect, parseState, playerId, topics, type InputMsg, type StateMsg } from './net';
 
 const base = import.meta.env.BASE_URL;
 
@@ -34,11 +34,8 @@ const Play: React.FC<{ params: URLSearchParams }> = ({ params }) => {
         setStatus('online');
         c.subscribe(topics(room).state);
         c.on('message', (_, buf) => {
-          try {
-            setState(JSON.parse(buf.toString()));
-          } catch {
-            /* чужое сообщение */
-          }
+          const s = parseState(buf);
+          if (s) setState(s);
         });
       })
       .catch((e: Error) => setStatus(e.message));

@@ -13,6 +13,7 @@ import Team from './components/Team';
 import Security from './components/Security';
 import Contact from './components/Contact';
 import Footer from './components/Footer';
+import ErrorBoundary from './components/ErrorBoundary';
 import { startSmooth } from './lib/smooth';
 import { useRoute } from './lib/route';
 
@@ -24,12 +25,14 @@ const App: React.FC = () => {
   const route = useRoute();
   if (route.page === 'stage' || route.page === 'play')
     return (
-      <Suspense fallback={<div className="grid h-[100svh] place-items-center font-mono text-xs uppercase tracking-[0.3em] text-haze">Загрузка…</div>}>
-        <div id="page-bg" className="page-bg" aria-hidden>
-        <i />
-      </div>
-        {route.page === 'stage' ? <Stage /> : <Play params={route.params} />}
-      </Suspense>
+      <ErrorBoundary>
+        <Suspense fallback={<div className="grid h-[100svh] place-items-center font-mono text-xs uppercase tracking-[0.3em] text-haze">Загрузка…</div>}>
+          <div id="page-bg" className="page-bg" aria-hidden>
+            <i />
+          </div>
+          {route.page === 'stage' ? <Stage /> : <Play params={route.params} />}
+        </Suspense>
+      </ErrorBoundary>
     );
   return <Main />;
 };

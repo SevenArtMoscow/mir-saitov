@@ -4,3 +4,4 @@ dist
 .DS_Store
 models-src
 assets-src
+tsconfig.tsbuildinfo

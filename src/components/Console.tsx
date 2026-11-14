@@ -1,9 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import confetti from 'canvas-confetti';
+import type { Options as ConfettiOptions } from 'canvas-confetti';
 import { Eyebrow, SplitReveal } from './ui';
 
 // «Пульт сайта»: пишете задачу словами — «код» печатается в терминале, и мини-сайт справа сразу меняется.
+// конфетти подгружается только когда понадобилось — не раздувает первый бандл
+const confetti = (o: ConfettiOptions) => void import('canvas-confetti').then((m) => m.default(o));
+
 type Cmd = 'gravity' | 'recolor' | 'confetti' | 'matrix' | 'runaway' | 'tilt' | 'night' | 'reset';
 
 const COMMANDS: { id: Cmd; label: string; code: string[] }[] = [

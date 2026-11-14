@@ -6,14 +6,22 @@ let lenis: Lenis | null = null;
 export const reducedMotion = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 export const finePointer = () => typeof window !== 'undefined' && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 
-export function startSmooth() {
+export function startSmooth(): (() => void) | undefined {
   if (lenis || reducedMotion()) return;
   lenis = new Lenis({ duration: 1.15, easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)), touchMultiplier: 1.4 });
+  let id = 0;
   const raf = (time: number) => {
     lenis?.raf(time);
-    requestAnimationFrame(raf);
+    id = requestAnimationFrame(raf);
   };
-  requestAnimationFrame(raf);
+  id = requestAnimationFrame(raf);
+  // отписка: цикл не должен жить после ухода с главной (#/stage, #/play) и при повторном монтировании
+  return () => {
+    cancelAnimationFrame(id);
+    lenis?.destroy();
+    lenis = null;
+    document.documentElement.style.overflow = '';
+  };
 }
 
 /** Прокрутить к якорю (#works) — плавно, с учётом шапки */
