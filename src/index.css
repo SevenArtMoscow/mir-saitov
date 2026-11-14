@@ -74,7 +74,7 @@ html.lenis body {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* общий фон: цвет и свечение задаёт Works.tsx, переход плавный и без швов между блоками */
+/* общий фон: цвет и свечение задаёт lib/theme.ts (своя тема у каждой главы), переход плавный и без швов между блоками */
 .page-bg {
   position: fixed;
   inset: 0;
@@ -82,12 +82,29 @@ html.lenis body {
   background-color: #07060c;
   transition: background-color 1s ease;
 }
-/* свечение — отдельным слоем; цвет ставит Works.tsx прямо в style (не через переменную на :root —
-   смена переменной на корне пересчитывает стили всей страницы и даёт подвисание ~60 мс) */
+/* свечение — отдельным слоем; цвет и место ставит theme.ts прямо в style этого слоя (не через переменную на :root —
+   смена переменной на корне пересчитывает стили всей страницы и даёт подвисание ~60 мс).
+   Через @property цвет и положение плавно перетекают, а не «щёлкают» */
+@property --g1 {
+  syntax: '<color>';
+  inherits: false;
+  initial-value: transparent;
+}
+@property --gx {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 50%;
+}
+@property --gy {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 40%;
+}
 .page-bg > i {
   position: absolute;
   inset: 0;
-  transition: opacity 0.8s ease;
+  background: radial-gradient(60% 50% at var(--gx) var(--gy), var(--g1), transparent 72%);
+  transition: opacity 0.8s ease, --g1 1.2s ease, --gx 1.6s ease, --gy 1.6s ease;
 }
 
 .text-aurora {

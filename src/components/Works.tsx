@@ -3,6 +3,7 @@ import { AnimatePresence, motion, useTransform } from 'motion/react';
 import { WORKS, type Work } from '../data';
 import { useSectionProgress } from '../lib/progress';
 import { scrollToId } from '../lib/smooth';
+import { setOverride } from '../lib/theme';
 import { BrowserFrame, PhoneFrame } from './Devices';
 import LiveModal from './LiveModal';
 import { Arrow, Eyebrow, Magnetic, SplitReveal } from './ui';
@@ -272,14 +273,7 @@ const Works: React.FC = () => {
 
   // фон всей страницы (слой .page-bg) перекрашивается в цвета работы на экране — без швов между блоками
   useEffect(() => {
-    const bg = document.getElementById('page-bg');
-    if (!bg) return;
-    bg.style.backgroundColor = cur ? cur.bg : '#07060c';
-    const glow = bg.firstElementChild as HTMLElement | null;
-    if (glow) {
-      glow.style.opacity = cur ? '1' : '0';
-      if (cur) glow.style.background = `radial-gradient(50% 45% at 70% 40%, ${cur.accent}2e, transparent 70%)`;
-    }
+    setOverride('works', cur ? { bg: cur.bg, glow: `${cur.accent}2e`, x: 70, y: 40 } : null);
   }, [cur]);
   const isDesktop = useIsDesktop();
 

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { scrollToId } from '../lib/smooth';
+import { setChapter } from '../lib/theme';
 
 // «Слайды»: сайт читается как одна большая презентация. Справа — рейка с номерами глав и подписью,
 // с клавиатуры — PageUp/PageDown и ←/→ прыгают между главами (↑/↓ и колесо листают как обычно).
@@ -31,6 +32,9 @@ const Deck: React.FC<{ visible: boolean }> = ({ visible }) => {
     els.forEach((el) => el && io.observe(el));
     return () => io.disconnect();
   }, []);
+
+  // цвет страницы следует за главой
+  useEffect(() => setChapter(CHAPTERS[cur].id), [cur]);
 
   const go = useCallback(
     (to: number) => {

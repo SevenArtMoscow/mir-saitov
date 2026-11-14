@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useInView } from 'motion/react';
 import { TEAM } from '../data';
 import { reducedMotion, scrollToId } from '../lib/smooth';
+import { setOverride } from '../lib/theme';
 import { Eyebrow, Magnetic, SplitReveal } from './ui';
 
 // «Защита»: демонстрация — сайт захватывает вирус-вымогатель, появляется команда «Мира сайтов»,
@@ -159,6 +160,21 @@ const Security: React.FC = () => {
     if (phase !== 'ransom' && phase !== 'rescue') return;
     const t = setInterval(() => setLeft((s) => Math.max(0, s - 1)), 1000);
     return () => clearInterval(t);
+  }, [phase]);
+
+  // фон страницы живёт вместе с демо: атака — красный, спасение — янтарный, финал — зелёный
+  useEffect(() => {
+    setOverride(
+      'security',
+      phase === 'attack' || phase === 'ransom'
+        ? { bg: '#14050a', glow: 'rgba(255,60,80,.30)', x: 50, y: 40 }
+        : phase === 'rescue'
+          ? { bg: '#0e0a08', glow: 'rgba(255,170,60,.16)', x: 60, y: 45 }
+          : phase === 'safe'
+            ? { bg: '#06100a', glow: 'rgba(200,255,77,.22)', x: 50, y: 45 }
+            : null,
+    );
+    return () => setOverride('security', null);
   }, [phase]);
 
   const broken = phase === 'attack';
