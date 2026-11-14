@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useInView } from 'motion/react';
 import { TEAM } from '../data';
-import { scrollToId } from '../lib/smooth';
+import { reducedMotion, scrollToId } from '../lib/smooth';
 import { Eyebrow, Magnetic, SplitReveal } from './ui';
 
 // «Защита»: демонстрация — сайт захватывает вирус-вымогатель, появляется команда «Мира сайтов»,
@@ -86,11 +86,45 @@ const Store: React.FC<{ broken: boolean }> = ({ broken }) => (
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
+// Шаги демонстрации под окном: видно, где мы сейчас — от красного (атака) к зелёному (защищён)
+const STAGES = [
+  { l: 'Сайт работает', bad: false },
+  { l: 'Атака', bad: true },
+  { l: 'Захват', bad: true },
+  { l: 'Спасение', bad: false },
+  { l: 'Защищён', bad: false },
+];
+const stageOf = (p: Phase) => (p === 'attack' ? 1 : p === 'ransom' ? 2 : p === 'rescue' ? 3 : p === 'safe' ? 4 : 0);
+
+const Stepper: React.FC<{ phase: Phase }> = ({ phase }) => {
+  const cur = stageOf(phase);
+  return (
+    <ol className="flex w-full max-w-xl items-start gap-2" aria-label="Ход демонстрации">
+      {STAGES.map((st, i) => {
+        const on = i <= cur;
+        const color = st.bad ? '#ff4d5e' : '#c8ff4d';
+        return (
+          <li key={st.l} className="flex-1">
+            <div className="h-1 overflow-hidden rounded-full bg-white/10">
+              <motion.div className="h-full rounded-full" style={{ background: color }} initial={false} animate={{ width: on ? '100%' : '0%' }} transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }} />
+            </div>
+            <div className={`mt-2 font-mono text-[10px] uppercase tracking-[0.15em] transition-colors duration-500 ${i === cur ? '' : on ? 'text-haze' : 'text-white/25'}`} style={i === cur ? { color } : undefined}>
+              {st.l}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
+};
+
 const Security: React.FC = () => {
   const [phase, setPhase] = useState<Phase>('idle');
   const [lines, setLines] = useState(0);
   const [left, setLeft] = useState(24 * 3600 - 1);
   const timers = useRef<number[]>([]);
+  const demo = useRef<HTMLDivElement>(null);
+  const inView = useInView(demo, { once: true, amount: 0.6 });
 
   const clear = () => {
     timers.current.forEach((t) => clearTimeout(t));
@@ -111,6 +145,14 @@ const Security: React.FC = () => {
     RESCUE.forEach((_, i) => at(9900 + i * 750, () => setLines(i + 1)));
     at(9900 + RESCUE.length * 750 + 900, () => setPhase('safe'));
   };
+
+  // показ как на сцене: когда блок на экране — атака стартует сама (кнопка «Открыть сайт» тоже работает)
+  useEffect(() => {
+    if (!inView || reducedMotion() || phase !== 'idle') return;
+    const t = window.setTimeout(run, 1400);
+    timers.current.push(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inView]);
 
   // таймер выкупа
   useEffect(() => {
@@ -137,8 +179,12 @@ const Security: React.FC = () => {
         </p>
       </div>
 
-      <div className="relative mx-auto mt-12 max-w-5xl">
-        <div className="overflow-hidden rounded-[22px] border border-white/15 bg-[#111018] shadow-[0_40px_120px_-40px_rgba(0,0,0,.9)]">
+      <div ref={demo} className="relative mx-auto mt-12 max-w-5xl">
+        <motion.div
+          className="overflow-hidden rounded-[22px] border border-white/15 bg-[#111018] shadow-[0_40px_120px_-40px_rgba(0,0,0,.9)]"
+          animate={broken ? { x: [0, -7, 6, -5, 4, -2, 0] } : { x: 0 }}
+          transition={{ duration: 0.6, repeat: broken ? 3 : 0 }}
+        >
           <div className="flex items-center gap-2 border-b border-white/10 bg-[#16151f] px-4 py-2.5">
             <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
             <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
@@ -282,21 +328,20 @@ const Security: React.FC = () => {
               )}
             </AnimatePresence>
           </div>
-        </div>
+        </motion.div>
 
-        <div className="mt-5 flex min-h-[44px] flex-wrap items-center justify-center gap-3">
-          {phase === 'safe' ? (
-            <>
+        <div className="mt-6 flex min-h-[64px] flex-col items-center justify-center gap-4">
+          {phase !== 'idle' && <Stepper phase={phase} />}
+          {phase === 'safe' && (
+            <motion.div className="flex flex-wrap items-center justify-center gap-3" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
               <span className="text-[15px] text-mist">Сайт снова работает, данные клиентов на месте.</span>
+              <span className="rounded-full border border-lime/30 bg-lime/10 px-3 py-1 font-mono text-[11px] text-lime">восстановление 03:00</span>
+              <span className="rounded-full border border-lime/30 bg-lime/10 px-3 py-1 font-mono text-[11px] text-lime">0 потерянных заказов</span>
               <button onClick={run} className="rounded-full border border-white/20 px-5 py-2.5 text-[13px] font-bold hover:border-white/50">
                 Повторить атаку
               </button>
-            </>
-          ) : phase !== 'idle' ? (
-            <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-haze">
-              {phase === 'loading' || phase === 'site' ? 'Открываем сайт' : phase === 'attack' ? 'Идёт атака' : phase === 'ransom' ? 'Сайт захвачен' : 'Устраняем угрозу'}
-            </span>
-          ) : null}
+            </motion.div>
+          )}
         </div>
       </div>
 
@@ -314,15 +359,19 @@ const Security: React.FC = () => {
           {SHIELD.map((s, i) => (
             <motion.div
               key={s.t}
-              className="bg-void p-6 sm:p-7"
+              className="group relative bg-void p-6 transition-colors duration-500 hover:bg-[#0d0c14] sm:p-7"
               initial={{ opacity: 0, y: 24 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-10% 0px' }}
               transition={{ duration: 0.7, delay: (i % 3) * 0.08, ease: [0.16, 1, 0.3, 1] }}
             >
-              <svg viewBox="0 0 24 24" className="h-7 w-7 text-lime" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d={s.icon} />
-              </svg>
+              <span className="pointer-events-none absolute left-0 top-0 h-px w-0 bg-lime transition-[width] duration-700 ease-out-expo group-hover:w-full" />
+              <div className="flex items-center justify-between">
+                <svg viewBox="0 0 24 24" className="h-7 w-7 text-lime transition-transform duration-500 ease-out-expo group-hover:-rotate-6 group-hover:scale-125" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d={s.icon} />
+                </svg>
+                <span className="font-mono text-[10px] tracking-[0.25em] text-white/25">{pad(i + 1)}</span>
+              </div>
               <div className="mt-5 font-display text-xl font-semibold tracking-tight">{s.t}</div>
               <p className="mt-2 text-[14px] leading-relaxed text-haze">{s.d}</p>
             </motion.div>
