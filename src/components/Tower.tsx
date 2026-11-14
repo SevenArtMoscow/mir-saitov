@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useMotionValue, useMotionValueEvent, useScroll, useSpring, useTransform, type MotionValue } from 'motion/react';
 import { TEAM, type Member } from '../data';
-import { finePointer, scrollToId } from '../lib/smooth';
+import { finePointer, scrollToId, scrollToY } from '../lib/smooth';
 
 // «Башня»: подъём на лифте по зданию у Москва-Сити. Всё в 2D (фото и слои),
 // объём — за счёт перспективы, наклона этажей и параллакса. Прокрутка вниз = лифт едет вверх:
@@ -338,29 +338,38 @@ const FloorView: React.FC<{ f: Floor; i: number; pos: MotionValue<number>; intro
   );
 };
 
-// ——— табло лифта ———
-const Elevator: React.FC<{ cur: number; onGo: (i: number) => void }> = ({ cur, onGo }) => (
-  <div className="pointer-events-auto flex flex-col items-center gap-3">
-    <div className="relative grid h-16 w-16 place-items-center overflow-hidden rounded-2xl border border-white/15 bg-black/70 font-mono text-[32px] font-bold text-lime backdrop-blur">
-      <AnimatePresence mode="popLayout" initial={false}>
-        <motion.span key={cur} initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -30, opacity: 0 }} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}>
-          {cur}
-        </motion.span>
-      </AnimatePresence>
-      <span className="pointer-events-none absolute inset-x-0 top-1 text-center text-[8px] font-normal tracking-[0.3em] text-white/30">ЭТАЖ</span>
+// ——— табло лифта: цифра и название этажа в цвете этажа ———
+const Elevator: React.FC<{ cur: number; onGo: (i: number) => void }> = ({ cur, onGo }) => {
+  const accent = FLOORS[cur].accent;
+  return (
+    <div className="pointer-events-auto flex flex-col items-center gap-3">
+      <div
+        className="relative grid h-16 w-16 place-items-center overflow-hidden rounded-2xl border bg-black/70 font-mono text-[32px] font-bold backdrop-blur transition-[border-color,box-shadow,color] duration-500"
+        style={{ color: accent, borderColor: `${accent}55`, boxShadow: `0 0 28px -6px ${accent}66` }}
+      >
+        <AnimatePresence mode="popLayout" initial={false}>
+          <motion.span key={cur} initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -30, opacity: 0 }} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}>
+            {cur}
+          </motion.span>
+        </AnimatePresence>
+        <span className="pointer-events-none absolute inset-x-0 top-1 text-center text-[8px] font-normal tracking-[0.3em] text-white/30">ЭТАЖ</span>
+      </div>
+      <span className="hidden max-w-[88px] text-center font-mono text-[9px] uppercase leading-tight tracking-[0.2em] text-white/50 sm:block">{FLOORS[cur].title}</span>
+      <div className="flex flex-col-reverse items-center gap-2">
+        {FLOORS.map((f, i) => (
+          <button
+            key={f.key}
+            onClick={() => onGo(i)}
+            aria-label={`Этаж ${i}: ${f.title}`}
+            title={`${i} · ${f.title}`}
+            className={`rounded-full transition-all duration-300 ${i === cur ? 'h-5 w-2.5' : 'h-2.5 w-2.5 bg-white/25 hover:bg-white/60'}`}
+            style={i === cur ? { background: accent, boxShadow: `0 0 10px ${accent}` } : undefined}
+          />
+        ))}
+      </div>
     </div>
-    <div className="flex flex-col-reverse items-center gap-2">
-      {FLOORS.map((f, i) => (
-        <button
-          key={f.key}
-          onClick={() => onGo(i)}
-          aria-label={`Этаж ${i}: ${f.title}`}
-          className={`rounded-full transition-all duration-300 ${i === cur ? 'h-5 w-2.5 bg-lime' : 'h-2.5 w-2.5 bg-white/25 hover:bg-white/60'}`}
-        />
-      ))}
-    </div>
-  </div>
-);
+  );
+};
 
 // ——— карточка этажа ———
 const Info: React.FC<{ f: Floor; i: number }> = ({ f, i }) => (
@@ -399,6 +408,13 @@ const Info: React.FC<{ f: Floor; i: number }> = ({ f, i }) => (
         )}
       </>
     )}
+    <ul className="mt-4 hidden flex-wrap gap-1.5 sm:flex lg:hidden">
+      {f.chips.map((c) => (
+        <li key={c.t} className="rounded-full border border-white/12 bg-white/5 px-2.5 py-1 text-[11px] text-mist/80">
+          {c.t} <span className="text-haze">· {c.s}</span>
+        </li>
+      ))}
+    </ul>
     <div className="mt-5 flex items-center gap-2 text-[12px] text-haze">
       <span className="relative flex h-2.5 w-2.5">
         <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60" style={{ background: f.accent }} />
@@ -422,7 +438,6 @@ const Tower: React.FC = () => {
   const [showInfo, setShowInfo] = useState(false);
   useMotionValueEvent(pos, 'change', (v) => setCur(Math.round(v)));
   useMotionValueEvent(intro, 'change', (v) => setShowInfo(v > 0.95));
-
   // подлёт: вся башня издалека → крупно; город за ней уходит в темноту
   const scale = useTransform(intro, [0, 1], [0.32, 1]);
   const bgScale = useTransform(intro, [0, 1], [1.05, 1.22]);
@@ -471,8 +486,27 @@ const Tower: React.FC = () => {
     if (!el) return;
     const top = el.getBoundingClientRect().top + window.scrollY;
     const span = el.offsetHeight - h;
-    window.scrollTo({ top: top + (span * (INTRO + i + 0.25)) / TOTAL, behavior: 'smooth' });
+    scrollToY(top + (span * (INTRO + i + 0.25)) / TOTAL);
   };
+
+  // ←/→ — на этаж выше/ниже; на крайних этажах клавишу забирает рейка глав
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      // башня «закреплена» на экране — только тогда ←/→ едут по этажам (считаем по геометрии, а не по значению прокрутки)
+      const r = ref.current?.getBoundingClientRect();
+      if (!r || r.top > 0 || r.bottom < window.innerHeight * 0.9 || !showInfo || e.altKey || e.ctrlKey || e.metaKey || (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft')) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      if (document.documentElement.style.overflow === 'hidden') return;
+      const to = cur + (e.key === 'ArrowRight' ? 1 : -1);
+      if (to < 0 || to >= N) return;
+      e.preventDefault();
+      go(to);
+    };
+    window.addEventListener('keydown', key, true);
+    return () => window.removeEventListener('keydown', key, true);
+    // go зависит только от высоты окна
+  }, [cur, showInfo, h]);
 
   return (
     <section ref={ref} className="relative" style={{ height: `${TOTAL * 100}vh` }}>

@@ -32,6 +32,12 @@ export function scrollToId(id: string) {
   else el.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth' });
 }
 
+/** Прокрутить к высоте на странице (px) — через Lenis, чтобы он не спорил с обычной прокруткой браузера */
+export function scrollToY(y: number, duration = 1.4) {
+  if (lenis) lenis.scrollTo(y, { duration });
+  else window.scrollTo({ top: y, behavior: reducedMotion() ? 'auto' : 'smooth' });
+}
+
 /** Остановить прокрутку страницы (открыто окно) и вернуть обратно */
 export function lockScroll(lock: boolean) {
   if (lenis) (lock ? lenis.stop() : lenis.start());
