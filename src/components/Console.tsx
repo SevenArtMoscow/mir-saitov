@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useInView } from 'motion/react';
 import type { Options as ConfettiOptions } from 'canvas-confetti';
+import { reducedMotion } from '../lib/smooth';
 import { Eyebrow, SplitReveal } from './ui';
 
 // «Пульт сайта»: пишете задачу словами — «код» печатается в терминале, и мини-сайт справа сразу меняется.
@@ -46,6 +47,22 @@ interface Line {
   kind: 'ask' | 'code' | 'ok' | 'info';
 }
 
+// Подсветка «кода» в терминале: строки, комментарии, ключевые слова и числа
+const TOKEN = /("[^"]*"|\/\/.*$|\b(?:import|from|const|new|true|false)\b|\b\d+(?:\.\d+)?\b)/g;
+const Highlight: React.FC<{ text: string }> = ({ text }) => (
+  <>
+    {text.split(TOKEN).map((part, i) => {
+      if (i % 2 === 0) return <span key={i}>{part}</span>;
+      const cls = part.startsWith('"') ? 'text-[#ffd98a]' : part.startsWith('//') ? 'text-haze' : /^\d/.test(part) ? 'text-[#ff9ec7]' : 'text-violet';
+      return (
+        <span key={i} className={cls}>
+          {part}
+        </span>
+      );
+    })}
+  </>
+);
+
 const Console: React.FC = () => {
   const [lines, setLines] = useState<Line[]>([{ id: 0, text: 'Выберите задачу или напишите свою ↓', kind: 'info' }]);
   const [typing, setTyping] = useState(false);
@@ -62,6 +79,11 @@ const Console: React.FC = () => {
   const btn = useRef<HTMLButtonElement>(null);
   const term = useRef<HTMLDivElement>(null);
   const nextId = useRef(1);
+  const section = useRef<HTMLElement>(null);
+  const inView = useInView(section, { once: true, margin: '-25% 0px' });
+  const history = useRef<string[]>([]);
+  const hpos = useRef(-1);
+  const runRef = useRef<(cmd: Cmd, asked: string) => Promise<void>>(async () => {});
 
   useEffect(() => {
     term.current?.scrollTo({ top: term.current.scrollHeight, behavior: 'smooth' });
@@ -88,6 +110,8 @@ const Console: React.FC = () => {
 
   const run = async (cmd: Cmd, asked: string) => {
     if (typing) return;
+    if (history.current[history.current.length - 1] !== asked) history.current.push(asked);
+    hpos.current = -1;
     setTyping(true);
     await typeLine(`› ${asked}`, 'ask');
     await typeLine('◇ Разбираю задачу…', 'info');
@@ -96,6 +120,8 @@ const Console: React.FC = () => {
     apply(cmd);
     setTyping(false);
   };
+
+  runRef.current = run;
 
   const apply = (cmd: Cmd) => {
     if (cmd === 'recolor') setTheme(PALETTES[(Math.random() * PALETTES.length) | 0]);
@@ -132,6 +158,8 @@ const Console: React.FC = () => {
     const q = input.trim();
     if (!q || typing) return;
     setInput('');
+    if (history.current[history.current.length - 1] !== q) history.current.push(q);
+    hpos.current = -1;
     const hit = KEYWORDS.find(([re]) => re.test(q));
     if (hit) run(hit[1], q);
     else {
@@ -166,12 +194,31 @@ const Console: React.FC = () => {
     }
   };
 
+  // приглашение: если человек сам ничего не нажал, через секунду сайт перекрашивается сам
+  useEffect(() => {
+    if (!inView || reducedMotion()) return;
+    const t = setTimeout(() => {
+      if (nextId.current === 1) runRef.current('recolor', 'перекрась сайт');
+    }, 1600);
+    return () => clearTimeout(t);
+  }, [inView]);
+
+  // что сейчас включено — со своими кнопками «выключить»
+  const layers = [
+    theme !== DEFAULT && { k: 'recolor', label: 'цвет', off: () => setTheme(DEFAULT) },
+    night && { k: 'night', label: 'ночь', off: () => setNight(false) },
+    tilt && { k: 'tilt', label: '3D', off: () => { setTilt(false); setRot({ x: 0, y: 0 }); } },
+    runaway && { k: 'runaway', label: 'беглец', off: () => { setRunaway(false); setBtnPos({ x: 0, y: 0 }); } },
+    gravity && { k: 'gravity', label: 'гравитация', off: () => setGravity(false) },
+    matrix && { k: 'matrix', label: 'матрица', off: () => setMatrix(false) },
+  ].filter(Boolean) as { k: string; label: string; off: () => void }[];
+
   const ink = night ? '#f2f0ff' : theme.ink;
   const bg = night ? '#0f0e17' : theme.bg;
   const card = night ? '#1c1a2b' : theme.card;
 
   return (
-    <section id="console" className="relative mx-auto max-w-[1500px] px-5 py-28 sm:px-10 sm:py-36">
+    <section id="console" ref={section} className="relative mx-auto max-w-[1500px] px-5 py-28 sm:px-10 sm:py-36">
       <Eyebrow n="03">Пульт сайта</Eyebrow>
       <h2 className="mt-8 font-display text-[12vw] font-semibold leading-[0.9] tracking-[-0.04em] sm:text-[8vw] lg:text-[5.6vw]">
         <SplitReveal text="Скажите —" /> <SplitReveal text="сайт сделает" delay={0.2} aurora />
@@ -196,11 +243,29 @@ const Console: React.FC = () => {
           <div className="flex min-h-[320px] flex-1 flex-col overflow-hidden rounded-[24px] border border-white/10 bg-[#0b0a12]">
             <div className="flex items-center gap-2 border-b border-white/10 px-4 py-2.5 font-mono text-[11px] text-haze">
               <span className="h-2 w-2 rounded-full bg-lime" /> mir-console
+              <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
+                <AnimatePresence initial={false}>
+                  {layers.map((l) => (
+                    <motion.button
+                      key={l.k}
+                      layout
+                      initial={{ opacity: 0, scale: 0.7 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.7 }}
+                      onClick={l.off}
+                      title="Выключить"
+                      className="flex items-center gap-1 rounded-full border border-lime/30 bg-lime/10 px-2 py-0.5 text-[10px] text-lime transition-colors hover:bg-lime hover:text-void"
+                    >
+                      {l.label} <span aria-hidden>×</span>
+                    </motion.button>
+                  ))}
+                </AnimatePresence>
+              </div>
             </div>
             <div ref={term} className="no-scrollbar flex-1 space-y-1.5 overflow-y-auto p-4 font-mono text-[13px] leading-relaxed">
               {lines.map((l) => (
                 <div key={l.id} className={l.kind === 'ask' ? 'text-mist' : l.kind === 'ok' ? 'text-lime' : l.kind === 'code' ? 'text-cyan' : 'text-haze'}>
-                  {l.text}
+                  {l.kind === 'code' ? <Highlight text={l.text} /> : l.text}
                   {typing && l.id === nextId.current - 1 && <span className="ml-0.5 inline-block h-4 w-2 translate-y-0.5 animate-pulse bg-lime" />}
                 </div>
               ))}
@@ -210,6 +275,19 @@ const Console: React.FC = () => {
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  // ↑/↓ — прошлые запросы, как в настоящем терминале
+                  const h = history.current;
+                  if (e.key === 'ArrowUp' && h.length) {
+                    e.preventDefault();
+                    hpos.current = hpos.current < 0 ? h.length - 1 : Math.max(0, hpos.current - 1);
+                    setInput(h[hpos.current]);
+                  } else if (e.key === 'ArrowDown' && hpos.current >= 0) {
+                    e.preventDefault();
+                    hpos.current = hpos.current + 1 >= h.length ? -1 : hpos.current + 1;
+                    setInput(hpos.current < 0 ? '' : h[hpos.current]);
+                  }
+                }}
                 placeholder="напишите задачу: «перекрась в синий», «включи гравитацию»…"
                 className="flex-1 bg-transparent font-mono text-[13px] text-mist placeholder-white/25 outline-none"
               />
